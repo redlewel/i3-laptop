@@ -1,0 +1,5 @@
+---
+# Ubuntu's `ansible` package already bundles these. Needed only when running
+# from a bare ansible-core (pip/venv): ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: community.general

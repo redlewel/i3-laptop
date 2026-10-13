@@ -1,0 +1,27 @@
+---
+- name: NVIDIA open kernel modules + prime-select
+  ansible.builtin.apt:
+    name:
+      - "nvidia-driver-{{ nvidia_driver_version }}-open"
+      - nvidia-prime
+    state: present
+
+- name: nvidia_drm modeset
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/nvidia-iac.conf
+    mode: "0644"
+    content: |
+      options nvidia_drm modeset=1
+      # Lets the dGPU power down when idle (only matters in on-demand mode).
+      options nvidia NVreg_DynamicPowerManagement=0x02
+  notify: update initramfs
+
+- name: Current prime mode
+  ansible.builtin.command: prime-select query
+  register: prime_query
+  changed_when: false
+  check_mode: false
+
+- name: prime mode is {{ nvidia_prime_mode }}
+  ansible.builtin.command: "prime-select {{ nvidia_prime_mode }}"
+  when: prime_query.stdout | trim != nvidia_prime_mode

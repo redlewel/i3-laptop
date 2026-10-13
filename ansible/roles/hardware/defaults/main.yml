@@ -1,0 +1,5 @@
+---
+# Overridden per machine in ansible/machines/*.yml.
+nvidia_driver_enabled: false
+nvidia_driver_version: "595"
+nvidia_prime_mode: nvidia

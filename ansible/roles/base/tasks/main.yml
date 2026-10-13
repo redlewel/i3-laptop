@@ -1,0 +1,65 @@
+---
+- name: Timezone
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Locale generated
+  community.general.locale_gen:
+    name: "{{ locale }}"
+    state: present
+
+# Always refresh. A freshly autoinstalled system has recent-looking lists that
+# only cover the ISO's offline pool, so a cache_valid_time window would skip the
+# update and every universe package would then be "not available".
+- name: apt cache refreshed
+  ansible.builtin.apt:
+    update_cache: true
+  changed_when: false
+
+- name: apt retries on transient network/DNS failures
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/80-retries
+    mode: "0644"
+    content: |
+      Acquire::Retries "3";
+
+- name: Base packages
+  ansible.builtin.apt:
+    name: "{{ apt_base }}"
+    state: present
+
+- name: Unattended security upgrades on
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+
+- name: Unattended upgrades enabled
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+- name: snapd refresh window tamed (not during the work day)
+  ansible.builtin.command: snap set system refresh.timer=sat,sun,22:00-02:00
+  changed_when: false
+  failed_when: false
+
+- name: Groups exist (docker is created here so the user add below never races the dev role)
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop: [docker]
+
+- name: Primary user group membership
+  ansible.builtin.user:
+    name: "{{ primary_user }}"
+    groups: [sudo, video, input, dialout, docker]
+    append: true
+
+- name: Noise off (apport crash popups, ubuntu-report telemetry)
+  ansible.builtin.apt:
+    name: [apport, ubuntu-report]
+    state: absent
+    purge: true

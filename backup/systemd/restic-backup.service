@@ -1,0 +1,16 @@
+# ~/.config/systemd/user/restic-backup.service
+# Repo URL and password come from ~/.config/restic/env (RESTIC_REPOSITORY,
+# RESTIC_PASSWORD_FILE or RESTIC_PASSWORD, plus any backend creds). That file
+# is private and never committed.
+[Unit]
+Description=restic backup of home
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/restic/env
+ExecStart=/usr/bin/restic backup %h --exclude-file=%h/Programming/iac-laptop/backup/restic-excludes.txt --exclude-caches --one-file-system
+ExecStartPost=/usr/bin/restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+Nice=10
+IOSchedulingClass=idle

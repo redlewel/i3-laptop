@@ -1,0 +1,37 @@
+---
+# Firmware, Thunderbolt, optional NVIDIA. Machine specifics: ansible/machines/.
+
+- name: fwupd and bolt present
+  ansible.builtin.apt:
+    name: [fwupd, bolt]
+    state: present
+
+- name: LVFS metadata refreshed (Dell ships power/thermal fixes this way)
+  ansible.builtin.command: fwupdmgr refresh --force
+  changed_when: false
+  failed_when: false
+
+- name: NVIDIA open driver (opt-in)
+  ansible.builtin.include_tasks: nvidia-open.yml
+  when: nvidia_driver_enabled | bool
+
+# Discrete NVIDIA GPU, if any: first NVIDIA VGA/3D device on the PCI bus.
+- name: dGPU PCI address
+  ansible.builtin.shell: "lspci -D -d 10de: | awk '/VGA|3D/ {print $1; exit}'"
+  register: dgpu_lspci
+  changed_when: false
+  check_mode: false
+
+- name: dGPU runtime power state
+  ansible.builtin.slurp:
+    src: "/sys/bus/pci/devices/{{ dgpu_lspci.stdout | trim }}/power/runtime_status"
+  register: dgpu_pm
+  failed_when: false
+  when: dgpu_lspci.stdout | trim | length > 0
+
+- name: dGPU power state (informational)
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'dGPU ' ~ dgpu_lspci.stdout | trim ~ ' runtime_status = ' ~ (dgpu_pm.content | default('') | b64decode | trim)
+         if dgpu_lspci.stdout | trim | length > 0 else 'no NVIDIA dGPU on this machine' }}
+  changed_when: false

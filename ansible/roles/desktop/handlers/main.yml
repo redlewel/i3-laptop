@@ -1,0 +1,6 @@
+---
+# Never restart greetd from Ansible: it owns the running sway session and a
+# restart would kill it. Config changes apply at the next login or reboot.
+- name: restart greetd
+  ansible.builtin.debug:
+    msg: "greetd config changed; it takes effect at the next login or reboot (not restarted on purpose)."

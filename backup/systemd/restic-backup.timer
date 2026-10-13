@@ -1,0 +1,11 @@
+# ~/.config/systemd/user/restic-backup.timer   (systemctl --user enable --now restic-backup.timer)
+[Unit]
+Description=Daily restic backup
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

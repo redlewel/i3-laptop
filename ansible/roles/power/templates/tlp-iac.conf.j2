@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+# Profiles per machine: ansible/machines/*.yml (check /sys/firmware/acpi/platform_profile_choices).
+CPU_ENERGY_PERF_POLICY_ON_AC=balance_performance
+CPU_ENERGY_PERF_POLICY_ON_BAT=balance_power   # 'power' felt laggy
+PLATFORM_PROFILE_ON_AC={{ tlp_platform_profile_on_ac }}
+PLATFORM_PROFILE_ON_BAT={{ tlp_platform_profile_on_bat }}
+WIFI_PWR_ON_AC=off
+WIFI_PWR_ON_BAT=on
+RUNTIME_PM_ON_AC=on
+RUNTIME_PM_ON_BAT=auto
+# The battery exposes charge_control_start/end_threshold. Enable once the
+# laptop lives on a dock most of the day; off until then.
+#START_CHARGE_THRESH_BAT0=75
+#STOP_CHARGE_THRESH_BAT0=80

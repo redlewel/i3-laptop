@@ -1,0 +1,125 @@
+---
+- name: Desktop packages (shared)
+  ansible.builtin.apt:
+    name: "{{ apt_desktop }}"
+    state: present
+  tags: [desktop]
+
+# lightdm's postinst asks which display manager is the default; answer it.
+- name: Default display manager preseeded
+  ansible.builtin.debconf:
+    name: "{{ display_manager }}"
+    question: shared/default-x-display-manager
+    value: "{{ display_manager }}"
+    vtype: select
+  tags: [desktop]
+
+- name: Desktop packages (Xorg + i3)
+  ansible.builtin.apt:
+    name: "{{ apt_desktop_x11 }}"
+    state: present
+  when: desktop_session == 'i3'
+  tags: [desktop]
+
+- name: Desktop packages (sway)
+  ansible.builtin.apt:
+    name: "{{ apt_desktop_wayland }}"
+    state: present
+  when: desktop_session == 'sway'
+  tags: [desktop]
+
+- name: Terminal packages
+  ansible.builtin.apt:
+    name: "{{ apt_terminal }}"
+    state: present
+  tags: [terminal]
+
+- name: Dev packages
+  ansible.builtin.apt:
+    name: "{{ apt_dev }}"
+    state: present
+  tags: [dev]
+
+- name: Work packages
+  ansible.builtin.apt:
+    name: "{{ apt_work }}"
+    state: present
+  tags: [work]
+
+- name: Personal apt packages
+  ansible.builtin.apt:
+    name: "{{ apt_personal }}"
+    state: present
+  tags: [personal]
+
+# Fonts not in the archive -------------------------------------------------
+- name: Hack Nerd Font (kitty.conf font_family)
+  ansible.builtin.unarchive:
+    src: https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Hack.tar.xz
+    dest: /usr/local/share/fonts/
+    remote_src: true
+    creates: /usr/local/share/fonts/HackNerdFont-Regular.ttf
+  notify: fc-cache
+  tags: [terminal]
+
+# Vendor .debs -----------------------------------------------------------
+- name: Deb cache directory
+  ansible.builtin.file:
+    path: /var/cache/iac-debs
+    state: directory
+    mode: "0755"
+
+- name: Vendor .debs installed
+  ansible.builtin.include_tasks: deb.yml
+  loop: "{{ deb_downloads }}"
+  loop_control:
+    loop_var: deb
+    label: "{{ deb.name }}"
+
+# Flatpak ------------------------------------------------------------------
+- name: Flatpak present
+  ansible.builtin.apt:
+    name: flatpak
+    state: present
+
+- name: Flathub remote
+  community.general.flatpak_remote:
+    name: flathub
+    flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
+    state: present
+
+- name: Common flatpaks
+  community.general.flatpak:
+    name: "{{ flatpaks }}"
+    state: present
+  when: flatpaks | length > 0
+
+- name: Personal flatpaks
+  community.general.flatpak:
+    name: "{{ flatpaks_personal }}"
+    state: present
+  tags: [personal]
+
+# Installer scripts, as the user ----------------------------------------
+# No mode: the mise/amp installers chmod this to 0775 and a fixed mode would
+# flap on every run.
+- name: User-local bin exists
+  ansible.builtin.file:
+    path: "{{ primary_user_home }}/.local/bin"
+    state: directory
+    owner: "{{ primary_user }}"
+    group: "{{ primary_user }}"
+  tags: [dev]
+
+- name: Installer scripts (mise, amp, claude-code)
+  ansible.builtin.shell: "curl -fsSL {{ item.url }} | bash"
+  args:
+    creates: "{{ item.creates }}"
+  become: true
+  become_user: "{{ primary_user }}"
+  environment:
+    HOME: "{{ primary_user_home }}"
+  loop: "{{ user_installers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags: [dev]

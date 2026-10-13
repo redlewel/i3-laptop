@@ -1,0 +1,61 @@
+#cloud-config
+# Autoinstall TEMPLATE for Ubuntu 26.04.1 Desktop ISO. Rendered by
+# `just autoinstall` from autoinstall/local.env into autoinstall/user-data
+# (gitignored). Delivery: user-data + meta-data on a vfat partition labelled
+# CIDATA (the ISO stick's own 5 MB EFI partition works), `autoinstall` on the
+# kernel line. No network is needed during the install.
+#
+# WARNING: reformats the whole target disk. Nothing on it survives.
+#
+# Both passwords are TEMPORARY ("machine-changeme" by default) and must be
+# rotated at first login:
+#   user password  -> `passwd`
+#   ZFS passphrase -> `sudo cryptsetup luksChangeKey /dev/zvol/rpool/keystore`
+autoinstall:
+  version: 1
+
+  locale: @@LOCALE@@
+  keyboard:
+    layout: @@KEYBOARD@@
+  timezone: @@TIMEZONE@@
+
+  source:
+    id: ubuntu-desktop-minimal        # "Default selection"; GNOME kept as fallback session
+    search_drivers: false
+
+  identity:
+    hostname: @@HOSTNAME@@
+    username: @@USERNAME@@
+    realname: @@REALNAME@@
+    password: "@@PASSWORD_HASH@@"
+
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys:
+@@AUTHORIZED_KEYS@@
+
+  storage:
+    layout:
+      name: zfs                       # with password => ZFS_LUKS_KEYSTORE (bpool + encrypted rpool + encrypted swap)
+      password: "@@ZFS_PASSPHRASE@@"
+      match:
+        path: @@DISK@@
+
+  # No proprietary drivers from the installer; the hardware role decides.
+  drivers:
+    install: false
+  codecs:
+    install: false
+
+  updates: security
+
+  # Only openssh-server is in the ISO's offline pool, and it is the only thing
+  # Ansible needs on the target (plus python3, already present).
+  packages:
+    - openssh-server
+
+  late-commands:
+    - cp /var/log/installer/autoinstall-user-data /target/root/autoinstall-used.yaml || true
+
+  shutdown: reboot

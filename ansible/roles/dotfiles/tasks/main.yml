@@ -1,0 +1,115 @@
+---
+# chezmoi is installed by roles/packages (deb_downloads).
+#
+# dotfiles_source (group_vars/all/local.yml, gitignored):
+#   ""                       -> this repo's dotfiles/ baseline (default)
+#   https://... or git@...   -> `chezmoi init --apply <url>` (chezmoi-formatted repo)
+#   /some/path               -> that directory on the target as the chezmoi source
+# dotfiles_enabled: false    -> skip the role entirely
+- name: chezmoi present
+  ansible.builtin.stat:
+    path: /usr/bin/chezmoi
+  register: chezmoi_bin
+
+- name: chezmoi missing
+  ansible.builtin.fail:
+    msg: "chezmoi not installed; run the packages role first"
+  when: not chezmoi_bin.stat.exists
+
+- name: Dotfiles source is a git URL?
+  ansible.builtin.set_fact:
+    dotfiles_is_url: "{{ (dotfiles_source | default('')) is match('^(https?://|git@|ssh://)') }}"
+
+# --- remote chezmoi repo -------------------------------------------------------
+- name: Dotfiles from git ({{ dotfiles_source }})
+  ansible.builtin.command: "chezmoi init --apply --force {{ dotfiles_source }}"
+  become: true
+  become_user: "{{ primary_user }}"
+  environment:
+    HOME: "{{ primary_user_home }}"
+  args:
+    creates: "{{ primary_user_home }}/.local/share/chezmoi/.git"
+  when: dotfiles_is_url
+
+- name: Dotfiles updated from git
+  ansible.builtin.command: chezmoi update --force
+  become: true
+  become_user: "{{ primary_user }}"
+  environment:
+    HOME: "{{ primary_user_home }}"
+  register: chezmoi_update
+  changed_when: "'Already up to date' not in chezmoi_update.stdout"
+  when: dotfiles_is_url
+
+# --- local source dir (baseline in this repo, or a path on the target) --------
+- name: Dotfiles source path
+  ansible.builtin.set_fact:
+    chezmoi_source: >-
+      {{ dotfiles_source if (dotfiles_source | default('') | length > 0)
+         else ((playbook_dir ~ '/../dotfiles') | realpath
+               if ansible_connection == 'local'
+               else iac_repo_dir ~ '/dotfiles') }}
+  when: not dotfiles_is_url
+
+- name: Baseline dotfiles staged on the target (remote runs only)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../dotfiles/"
+    dest: "{{ chezmoi_source }}/"
+    owner: "{{ primary_user }}"
+    group: "{{ primary_user }}"
+    mode: preserve
+    directory_mode: "0755"
+  when:
+    - not dotfiles_is_url
+    - dotfiles_source | default('') | length == 0
+    - ansible_connection != 'local'
+
+- name: chezmoi config pinned to this source dir
+  ansible.builtin.command: "chezmoi init --source {{ chezmoi_source }}"
+  args:
+    creates: "{{ primary_user_home }}/.config/chezmoi/chezmoi.toml"
+  become: true
+  become_user: "{{ primary_user }}"
+  environment:
+    HOME: "{{ primary_user_home }}"
+  when: not dotfiles_is_url
+
+- name: Pending dotfile changes
+  ansible.builtin.command: "chezmoi status --source {{ chezmoi_source }}"
+  become: true
+  become_user: "{{ primary_user }}"
+  environment:
+    HOME: "{{ primary_user_home }}"
+  register: chezmoi_status
+  changed_when: false
+  check_mode: false
+  when: not dotfiles_is_url
+
+# --force: the source is authoritative; `just capture` first to keep local edits.
+- name: Dotfiles applied
+  ansible.builtin.command: "chezmoi apply --force --source {{ chezmoi_source }}"
+  become: true
+  become_user: "{{ primary_user }}"
+  environment:
+    HOME: "{{ primary_user_home }}"
+  when:
+    - not dotfiles_is_url
+    - chezmoi_status.stdout | trim | length > 0
+  changed_when: true
+
+# If the applied dotfiles include an nvim config with a lazy-lock.json, install
+# the pinned plugins now so the first interactive `nvim` isn't a long download.
+- name: nvim lazy-lock present?
+  ansible.builtin.stat:
+    path: "{{ primary_user_home }}/.config/nvim/lazy-lock.json"
+  register: nvim_lock
+
+- name: nvim plugins restored from lazy-lock.json
+  ansible.builtin.command: nvim --headless "+Lazy! restore" +qa
+  args:
+    creates: "{{ primary_user_home }}/.local/share/nvim/lazy/lazy.nvim"
+  become: true
+  become_user: "{{ primary_user }}"
+  environment:
+    HOME: "{{ primary_user_home }}"
+  when: nvim_lock.stat.exists

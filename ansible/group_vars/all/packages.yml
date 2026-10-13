@@ -1,0 +1,189 @@
+---
+# Package manifest. Tags on roles/tasks decide what gets installed:
+#   work laptop:  everything except `personal`   (just apply)
+#   personal box: everything                      (just apply-all)
+#
+# Source preference: vendor apt repo .deb > Ubuntu archive > Flatpak > installer script.
+# Verified against the 26.04 (resolute) archive on 2026-10-12.
+
+apt_base:
+  - build-essential
+  - git
+  - curl
+  - wget
+  - jq
+  - ripgrep
+  - fd-find
+  - bat
+  - fzf
+  - tree
+  - htop
+  - btop
+  - unzip
+  - zip
+  - rsync
+  - tmux
+  - fish
+  - age          # sops is NOT in the archive; see deb_downloads
+  - just
+  - direnv
+  - python3-yaml  # scripts/capture-packages.sh
+  - zfsutils-linux
+
+apt_desktop:                 # shared by both flavours
+  - pipewire
+  - pipewire-pulse
+  - wireplumber
+  - network-manager
+  - network-manager-gnome
+  - brightnessctl
+  - playerctl
+  - pavucontrol
+  - blueman
+  - nautilus
+  - udisks2
+  - gvfs-backends
+  - fonts-noto
+  - fonts-noto-color-emoji
+  - fonts-jetbrains-mono
+  - nomacs
+  - policykit-1-gnome
+  - pulseaudio-utils   # pactl (works against pipewire-pulse)
+  - jq
+
+# Xorg + i3 (desktop_session: i3). Everything ~/.config/i3/config calls.
+apt_desktop_x11:
+  - xserver-xorg
+  - xinit
+  - x11-xserver-utils  # xrdb, xrandr
+  - lightdm
+  - lightdm-gtk-greeter
+  - i3
+  - i3status
+  - i3lock
+  - xss-lock
+  - xautolock
+  - dex
+  - redshift
+  - dunst           # notifications
+  - maim            # screenshot -> clipboard bindings
+  - xclip
+  - xdotool
+  - suckless-tools  # dmenu_run
+  - autorandr       # replaces the ~/.screenlayout scripts
+  - xinput          # touchpad/keyboard props from the shell
+  - x11-apps        # xwd etc., handy for remote diagnostics
+  - arandr
+  - feh             # wallpaper: feh --bg-fill <image>; i3 restores ~/.fehbg at start
+
+# sway (desktop_session: sway). Kept for the Zenbook / a future retry.
+apt_desktop_wayland:
+  - sway
+  - swayidle
+  - swaylock
+  - swaybg
+  - kanshi
+  - mako-notifier
+  - fuzzel
+  - wmenu
+  - gammastep
+  - xdg-desktop-portal
+  - xdg-desktop-portal-wlr    # load-bearing: screen share in Slack/Zoom/Teams
+  - xdg-desktop-portal-gtk
+  - grim
+  - slurp
+  - wl-clipboard
+  - greetd
+  - tuigreet
+
+apt_terminal:
+  - ghostty       # 1.3.0 in the archive; ppa:mkasberg/ghostty-ubuntu if newer is needed
+  - kitty         # the terminal (Alt+Return); tmux does the splitting
+  - fonts-hack    # kitty.conf wants Hack Nerd Font; the Nerd variant is fetched by roles/packages
+
+apt_dev:
+  - neovim        # helix is NOT in the archive; see deb_downloads
+  - code          # Microsoft repo
+  - gh            # GitHub CLI repo
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-compose-plugin
+  - docker-buildx-plugin
+
+apt_work:
+  - tailscale     # pkgs.tailscale.com; auth is interactive SSO, never in this repo
+  - brave-browser
+  - remmina       # TODO: confirm needed (work / personal / both)
+
+# Not installed on the work laptop (--skip-tags personal). Flatpak is fine here.
+apt_personal:
+  - mpv
+
+# Flatpaks for every machine (not daily drivers, so Flatpak is fine). Empty today:
+# balenaEtcher is not on Flathub, so it is a vendor .deb below.
+flatpaks: []
+
+flatpaks_personal:
+  - org.signal.Signal
+  - com.discordapp.Discord
+  - im.riot.Riot
+  - org.qbittorrent.qBittorrent
+  - com.calibre_ebook.calibre
+  - com.obsproject.Studio     # TODO: classify work/personal/both
+
+# Vendor .debs with no apt repo. Pinned on purpose; bump deliberately.
+# `creates` is the path that proves the package is installed (idempotence guard).
+deb_downloads:
+  - name: slack-desktop
+    url: https://downloads.slack-edge.com/desktop-releases/linux/x64/4.52.178/slack-desktop-4.52.178-amd64.deb
+    creates: /usr/bin/slack
+    tags: [work]
+  - name: chezmoi
+    url: https://github.com/twpayne/chezmoi/releases/download/v2.73.1/chezmoi_2.73.1_linux_amd64.deb
+    creates: /usr/bin/chezmoi
+    tags: [base]
+  - name: sops
+    url: https://github.com/getsops/sops/releases/download/v3.13.3/sops_3.13.3_amd64.deb
+    creates: /usr/bin/sops
+    tags: [base]
+  - name: helix
+    url: https://github.com/helix-editor/helix/releases/download/25.07.1/helix_25.7.1-1_amd64.deb
+    creates: /usr/bin/hx
+    tags: [dev]
+  # Chrome's postinst creates and maintains its own apt repo (google-chrome.sources
+  # + /usr/share/keyrings/google-chrome.gpg, refreshed by /etc/cron.daily/google-chrome).
+  # Managing that repo from Ansible fights the cron job, so Chrome is bootstrapped
+  # from the direct .deb and then updates like any repo package.
+  - name: google-chrome
+    url: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    creates: /usr/bin/google-chrome-stable
+    tags: [desktop]
+  - name: balena-etcher
+    url: https://github.com/balena-io/etcher/releases/download/v2.1.7/balena-etcher_2.1.7_amd64.deb
+    creates: /usr/bin/balena-etcher
+    tags: [desktop]
+  # - name: rustdesk                      # TODO: classify work/personal/both before enabling
+  #   url: https://github.com/rustdesk/rustdesk/releases/download/1.5.0/rustdesk-1.5.0-x86_64.deb
+  #   creates: /usr/bin/rustdesk
+  #   tags: [work]
+  # - name: cursor                        # TODO: resolve a stable .deb URL (download API returned an error on 2026-10-12)
+  #   url: https://downloads.cursor.com/production/<hash>/linux/x64/deb/amd64/deb/cursor_<ver>_amd64.deb
+  #   creates: /usr/bin/cursor
+  #   tags: [dev]
+  # - name: gitkraken                     # TODO: resolve a working .deb URL (release.gitkraken.com/linux/gitkraken-amd64.deb 404s) and classify
+  #   url: ...
+  #   creates: /usr/bin/gitkraken
+  #   tags: [dev]
+
+# Installer scripts, run as the primary user. `creates` guards re-runs.
+user_installers:
+  - name: mise
+    url: https://mise.run
+    creates: "{{ primary_user_home }}/.local/bin/mise"
+  - name: amp
+    url: https://ampcode.com/install.sh
+    creates: "{{ primary_user_home }}/.local/bin/amp"
+  - name: claude-code
+    url: https://claude.ai/install.sh
+    creates: "{{ primary_user_home }}/.local/bin/claude"

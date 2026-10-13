@@ -1,0 +1,17 @@
+---
+# Dell Pro Max 14 Premium (MA14250): Core Ultra 7 265H + RTX PRO 2000 Blackwell.
+# Selected automatically when ansible_facts.product_name slugs to this file name.
+#
+# The dock's display outputs are wired to the NVIDIA GPU, so it drives the
+# external monitor. Proprietary driver with the *open* kernel modules (Blackwell
+# needs them). 595 = `ubuntu-drivers devices` recommendation on 26.04.1.
+nvidia_driver_enabled: true
+nvidia_driver_version: "595"
+# "nvidia": X on the dGPU, laptop panel via PRIME (Ubuntu's standard Optimus
+# setup; external monitors just work; dGPU never powers down).
+# "on-demand": X on the iGPU, NVIDIA ports via reverse PRIME (battery option to try).
+nvidia_prime_mode: nvidia
+# Platform profiles this firmware exposes: cool quiet balanced performance (no
+# low-power). quiet pinned the CPU under 1 GHz and felt laggy.
+tlp_platform_profile_on_bat: balanced
+tlp_platform_profile_on_ac: balanced

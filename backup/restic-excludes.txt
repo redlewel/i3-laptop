@@ -1,0 +1,24 @@
+# restic --exclude-file. Paths relative to the backed-up home.
+**/.cache
+**/node_modules
+**/target
+**/.venv
+**/venv
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.gradle
+**/.cargo/registry
+**/.rustup
+**/.npm
+**/.local/share/Trash
+**/.local/share/docker
+**/.local/share/containers
+**/.var/app/*/cache
+**/.mozilla/firefox/*/cache2
+**/.config/*/Cache
+**/.config/*/GPUCache
+**/.config/*/Code Cache
+**/snap/*/common/.cache
+# Downloads: uncomment to skip
+# **/Downloads

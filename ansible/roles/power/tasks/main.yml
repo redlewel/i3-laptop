@@ -1,0 +1,40 @@
+---
+# Battery. swayidle timings live in dotfiles (sway config), not here.
+# Before/after numbers: scripts/power-baseline.sh -> docs/power-log.md
+
+- name: power-profiles-daemon removed (conflicts with TLP)
+  ansible.builtin.apt:
+    name: power-profiles-daemon
+    state: absent
+
+- name: TLP, thermald, powertop, VA-API
+  ansible.builtin.apt:
+    name:
+      - tlp
+      - tlp-rdw
+      - thermald
+      - powertop
+      - intel-media-va-driver-non-free
+      - vainfo
+      - linux-tools-common   # turbostat
+    state: present
+
+- name: TLP overrides
+  ansible.builtin.template:
+    src: tlp-iac.conf.j2
+    dest: /etc/tlp.d/10-iac.conf
+    mode: "0644"
+  notify: restart tlp
+
+- name: TLP and thermald enabled
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: [tlp, thermald]
+
+- name: systemd-rfkill masked (TLP radio handling)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop: [systemd-rfkill.service, systemd-rfkill.socket]

@@ -1,0 +1,37 @@
+# ansible
+ansible/*.retry
+ansible/.vault-pass
+*.local.yml
+
+# secrets never land here (they live in the private work-overlay repo)
+*.dec.yml
+*.dec.yaml
+secrets.yml
+env
+*.key
+*.pem
+id_*
+
+# local overrides of the installer file (real Wi-Fi creds etc.)
+
+# python / editors
+__pycache__/
+.venv/
+*.pyc
+.idea/
+.vscode/
+.DS_Store
+
+# reference material dropped in by hand, each its own repo
+ubuntu-config/
+black-jellyfish-config/
+
+# rendered autoinstall (temp passwords + your SSH keys) and its inputs
+autoinstall/user-data
+autoinstall/meta-data
+autoinstall/vendor-data
+autoinstall/local.env
+# raw hardware probes carry serials, MACs and the Wi-Fi SSID
+docs/hardware-report-*.txt
+# per-person values
+ansible/group_vars/all/local.yml

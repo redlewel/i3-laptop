@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+# VT 7: Ubuntu's greetd.service conflicts with getty@tty7 only. On VT 1 it shares
+# the terminal with getty@tty1 and the greeter output gets garbled.
+[terminal]
+vt = 7
+
+[default_session]
+command = "{{ greetd_default_cmd }}"
+user = "_greetd"

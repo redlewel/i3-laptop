@@ -1,0 +1,13 @@
+# Two ways to reach the same machine:
+#   - "laptop" over SSH (IAC_HOST=<ip or name>), used while building the repo from another box
+#   - "localhost" with a local connection, used day-to-day on the laptop itself
+# Both get identical variables. Always pass a limit (-l); the Justfile does.
+all:
+  children:
+    laptops:
+      hosts:
+        laptop:
+          ansible_host: "{{ lookup('env', 'IAC_HOST') | default('laptop.local', true) }}"
+          ansible_user: "{{ primary_user }}"
+        localhost:
+          ansible_connection: local

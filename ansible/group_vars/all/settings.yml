@@ -1,0 +1,26 @@
+---
+# Who/where: in group_vars/all/local.yml (gitignored, see local.yml.example):
+#   primary_user, timezone, dotfiles_source. Secrets (Tailscale keys, Wi-Fi PSKs,
+#   internal hosts) live in a separate private overlay, never here.
+primary_user_home: "/home/{{ primary_user }}"
+locale: en_US.UTF-8
+
+# Desktop flavour. Xorg + i3 is the default (NVIDIA laptops, and what the
+# owner dailies); sway + greetd is the Wayland alternative.
+# Machine-specific values (NVIDIA, prime mode, TLP profiles) live in
+# ansible/machines/<dmi-product-name>.yml, picked at run time.
+desktop_session: i3          # i3 | sway
+display_manager: lightdm     # lightdm | greetd
+greetd_default_cmd: "tuigreet --time --remember --remember-session --cmd sway"
+
+# swayidle timings (seconds)
+idle_dim: 120
+idle_dpms_off: 300
+idle_lock: 600
+
+# Where this repo lives on the laptop. Remote runs stage dotfiles here; local
+# runs (`just apply` on the machine) use the checkout directly.
+iac_repo_dir: "{{ primary_user_home }}/laptop-iac"
+
+# ZFS dataset that `just apply` snapshots before each run.
+zfs_root_dataset_glob: "rpool/ROOT/ubuntu_*"

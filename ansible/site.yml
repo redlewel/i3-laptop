@@ -1,0 +1,32 @@
+---
+- name: Configure laptop
+  hosts: all
+  gather_facts: true
+  pre_tasks:
+    - name: Refuse to run on anything but Ubuntu 26.04
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.distribution_version is version("26.04", ">=")
+        fail_msg: "This playbook targets Ubuntu 26.04 LTS. Found {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}."
+      tags: always
+
+    # Per-machine values (NVIDIA, prime mode, TLP profiles) keyed by DMI product
+    # name: "Dell Pro Max 14 Premium MA14250" -> machines/dell-pro-max-14-premium-ma14250.yml
+    - name: Machine profile selected
+      ansible.builtin.include_vars:
+        file: "{{ lookup('ansible.builtin.first_found', machine_profile_candidates) }}"
+      vars:
+        machine_profile_candidates:
+          - "machines/{{ ansible_facts.product_name | default('') | lower | regex_replace('[^a-z0-9]+', '-') | trim('-') }}.yml"
+          - machines/default.yml
+      tags: always
+  roles:
+    - { role: base,     tags: [base] }
+    - { role: repos,    tags: [repos, packages] }
+    - { role: packages, tags: [packages] }
+    - { role: desktop,  tags: [desktop] }
+    - { role: hardware, tags: [hardware] }
+    - { role: power,    tags: [power] }
+    - { role: dev,      tags: [dev] }
+    - { role: dotfiles, tags: [dotfiles], when: dotfiles_enabled | default(true) }

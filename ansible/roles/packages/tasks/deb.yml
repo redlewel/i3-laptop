@@ -1,0 +1,23 @@
+---
+# One vendor .deb. The loop in main.yml passes `deb`. Per-item tags are
+# honoured manually since include_tasks loops can't carry tags per item.
+- name: "{{ deb.name }}: check installed"
+  ansible.builtin.stat:
+    path: "{{ deb.creates }}"
+  register: deb_bin
+
+- name: "{{ deb.name }}: download and install"
+  when:
+    - not deb_bin.stat.exists
+    - (deb.tags | default([])) | intersect(ansible_skip_tags) | length == 0
+    - ('all' in ansible_run_tags) or ((deb.tags | default([])) | intersect(ansible_run_tags) | length > 0)
+  block:
+    - name: "{{ deb.name }}: download"
+      ansible.builtin.get_url:
+        url: "{{ deb.url }}"
+        dest: "/var/cache/iac-debs/{{ deb.url | basename }}"
+        mode: "0644"
+
+    - name: "{{ deb.name }}: install"
+      ansible.builtin.apt:
+        deb: "/var/cache/iac-debs/{{ deb.url | basename }}"

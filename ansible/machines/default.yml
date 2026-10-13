@@ -1,0 +1,8 @@
+---
+# Fallback machine profile: anything without a file named after its DMI
+# product name (see site.yml pre_tasks). Conservative: no NVIDIA, balanced power.
+nvidia_driver_enabled: false
+nvidia_driver_version: "595"
+nvidia_prime_mode: nvidia
+tlp_platform_profile_on_bat: balanced
+tlp_platform_profile_on_ac: balanced

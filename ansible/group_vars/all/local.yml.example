@@ -1,0 +1,11 @@
+---
+# Copy to local.yml (gitignored). Per-person values the public repo must not carry.
+primary_user: me
+timezone: Etc/UTC
+
+# Your own dotfiles. Empty = the generic baseline in ./dotfiles.
+#   git URL of a chezmoi-formatted repo, e.g. https://github.com/<you>/dotfiles
+#   or a path on the target machine
+dotfiles_source: ""
+# Set false to leave ~ untouched (e.g. while migrating configs by hand).
+dotfiles_enabled: true

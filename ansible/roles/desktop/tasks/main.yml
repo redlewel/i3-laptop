@@ -1,0 +1,139 @@
+---
+# Display manager + session plumbing. Packages come from roles/packages.
+# desktop_session / display_manager live in group_vars/all/settings.yml.
+
+- name: Display manager selection is consistent
+  ansible.builtin.assert:
+    that:
+      - (desktop_session == 'i3' and display_manager == 'lightdm') or
+        (desktop_session == 'sway' and display_manager in ['greetd', 'lightdm'])
+    fail_msg: "desktop_session={{ desktop_session }} with display_manager={{ display_manager }} is not a supported combination"
+
+# --- lightdm (Xorg + i3) ----------------------------------------------------
+- name: lightdm session defaults
+  ansible.builtin.template:
+    src: lightdm-iac.conf.j2
+    dest: /etc/lightdm/lightdm.conf.d/50-iac.conf
+    mode: "0644"
+  when: display_manager == 'lightdm'
+
+# gnome-keyring unlocks at login (secret store for Chrome/Slack/VS Code tokens
+# and polkit-adjacent prompts). Ubuntu's lightdm PAM file ships these lines;
+# make sure they are present.
+- name: lightdm PAM unlocks gnome-keyring at login
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/lightdm
+    regexp: '^{{ item.type }}\s+optional\s+pam_gnome_keyring\.so'
+    line: "{{ item.line }}"
+    insertafter: EOF
+  loop:
+    - { type: auth,    line: "auth    optional        pam_gnome_keyring.so" }
+    - { type: session, line: "session optional        pam_gnome_keyring.so auto_start" }
+  when: display_manager == 'lightdm'
+
+- name: gnome-keyring autostart entries not hidden
+  ansible.builtin.file:
+    path: "{{ primary_user_home }}/.config/autostart/{{ item }}"
+    state: absent
+  loop:
+    - gnome-keyring-pkcs11.desktop
+    - gnome-keyring-secrets.desktop
+    - gnome-keyring-ssh.desktop
+
+- name: Xorg libinput touchpad defaults (natural scrolling, clickfinger)
+  ansible.builtin.copy:
+    dest: /etc/X11/xorg.conf.d/40-touchpad-iac.conf
+    mode: "0644"
+    content: |
+      Section "InputClass"
+          Identifier "iac touchpad"
+          MatchIsTouchpad "on"
+          MatchDriver "libinput"
+          Option "NaturalScrolling" "true"
+          Option "ClickMethod" "clickfinger"
+          Option "Tapping" "false"
+          Option "DisableWhileTyping" "true"
+      EndSection
+  when: desktop_session == 'i3'
+
+# --- greetd (sway) ----------------------------------------------------------
+- name: greetd config
+  ansible.builtin.template:
+    src: greetd-config.toml.j2
+    dest: /etc/greetd/config.toml
+    mode: "0644"
+  when: display_manager == 'greetd'
+  notify: restart greetd
+
+- name: Portal config directory
+  ansible.builtin.file:
+    path: /etc/xdg/xdg-desktop-portal
+    state: directory
+    mode: "0755"
+  when: desktop_session == 'sway'
+
+- name: Portal backend selection for sway
+  ansible.builtin.copy:
+    src: sway-portals.conf
+    dest: /etc/xdg/xdg-desktop-portal/sway-portals.conf
+    mode: "0644"
+  when: desktop_session == 'sway'
+
+# --- switch the active display manager --------------------------------------
+- name: Default display manager file
+  ansible.builtin.copy:
+    dest: /etc/X11/default-display-manager
+    content: "{{ {'lightdm': '/usr/sbin/lightdm', 'greetd': '/usr/bin/greetd'}[display_manager] }}\n"
+    mode: "0644"
+
+- name: Other display managers disabled (kept installed as fallbacks)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+  loop: "{{ ['gdm3', 'greetd', 'lightdm'] | difference([display_manager]) }}"
+  failed_when: false
+
+- name: "{{ display_manager }} enabled (takes over at next boot)"
+  ansible.builtin.systemd:
+    name: "{{ display_manager }}"
+    enabled: true
+
+# --- user session bits ------------------------------------------------------
+- name: Chromium/Electron apps use VA-API (and native Wayland when under sway)
+  ansible.builtin.copy:
+    src: chromium-flags.conf
+    dest: "{{ primary_user_home }}/.config/{{ item }}"
+    owner: "{{ primary_user }}"
+    group: "{{ primary_user }}"
+    mode: "0644"
+  loop:
+    - slack-flags.conf
+    - brave-flags.conf
+    - code-flags.conf
+    - cursor-flags.conf
+    - electron-flags.conf
+
+- name: User systemd dir
+  ansible.builtin.file:
+    path: "{{ primary_user_home }}/.config/systemd/user"
+    state: directory
+    owner: "{{ primary_user }}"
+    group: "{{ primary_user }}"
+    mode: "0755"
+
+# Equivalent of `systemctl --user mask`, without needing a live user session.
+# No owner/group here: the file module cannot chown a symlink to /dev/null and
+# would report "changed" on every run.
+- name: Leftover GNOME user daemons masked
+  ansible.builtin.file:
+    src: /dev/null
+    dest: "{{ primary_user_home }}/.config/systemd/user/{{ item }}"
+    state: link
+  loop:
+    - tracker-miner-fs-3.service
+    - tracker-miner-fs-control-3.service
+    - evolution-source-registry.service
+    - evolution-calendar-factory.service
+    - evolution-addressbook-factory.service
+    - goa-daemon.service
+    - goa-identity-service.service
