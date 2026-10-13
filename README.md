@@ -15,23 +15,6 @@ answers "does the live machine still match the repo?"
 
 Rollback is a ZFS snapshot: `just apply` snapshots the root dataset before every run.
 
-## Hardware (as found 2026-10-12)
-
-| Component | Found |
-|---|---|
-| CPU | Intel Core Ultra 7 265H, 16 cores (6P+8E+2LPE), Arrow Lake-H |
-| RAM | 32 GB LPDDR5x 8533 |
-| iGPU | Intel Arc 140T, driver **i915** on kernel 7.0 (not xe) |
-| dGPU | NVIDIA RTX PRO 2000 Blackwell 8 GB, **drives the dock's display outputs**; nvidia-driver-595-open, prime mode `nvidia` |
-| Panel | 14" 1920x1200 IPS, `intel_backlight` (no OLED, no PWM concern) |
-| Wi-Fi | Intel BE201 Wi-Fi 7, 6 GHz band present |
-| Disk | 1 TB SK hynix PC811 NVMe |
-| Firmware | BIOS 1.13.1, Secure Boot **disabled**, TPM 2.0 |
-| Sleep | s2idle only |
-| Dock | Dell U4025QW over USB4, authorized by bolt; 5120x2160 through the NVIDIA GPU |
-
-Full probe output: `docs/hardware-report-2026-10-12.txt`. Re-run with `just hw`.
-
 ## Install (what was actually done)
 
 1. Ubuntu **26.04.1 Desktop** ISO (`ubuntu-26.04.1-desktop-amd64.iso`) written to USB with `dd`.
